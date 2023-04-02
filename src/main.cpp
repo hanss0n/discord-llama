@@ -1,42 +1,27 @@
-#include <templatebot/templatebot.h>
-#include <sstream>
+#include <iostream>
+#include "LlamaModel.h"
 
-/* When you invite the bot, be sure to invite it with the
- * scopes 'bot' and 'applications.commands', e.g.
- * https://discord.com/oauth2/authorize?client_id=940762342495518720&scope=bot+applications.commands&permissions=139586816064
- */
+int main() {
+    try {
+        // Replace "path/to/model/file" with the actual path to your llama model file
+        LlamaModel model("path/to/model/file");
 
-using json = nlohmann::json;
+        std::string input_text;
+        while (true) {
+            std::cout << "Enter your message (type 'exit' to quit): ";
+            std::getline(std::cin, input_text);
 
-int main(int argc, char const *argv[])
-{
-    json configdocument;
-    std::ifstream configfile("../config.json");
-    configfile >> configdocument;
+            if (input_text == "exit") {
+                break;
+            }
 
-    /* Setup the bot */
-    dpp::cluster bot(configdocument["token"]);
-
-    /* Output simple log messages to stdout */
-    bot.on_log(dpp::utility::cout_logger());
-
-    /* Handle slash command */
-    bot.on_slashcommand([](const dpp::slashcommand_t& event) {
-         if (event.command.get_command_name() == "ping") {
-            event.reply("Pong!");
+            std::string response = model.generate_response(input_text);
+            std::cout << "LlamaModel: " << response << std::endl;
         }
-    });
-
-    /* Register slash command here in on_ready */
-    bot.on_ready([&bot](const dpp::ready_t& event) {
-        /* Wrap command registration in run_once to make sure it doesnt run on every full reconnection */
-        if (dpp::run_once<struct register_bot_commands>()) {
-            bot.global_command_create(dpp::slashcommand("ping", "Ping pong!", bot.me.id));
-        }
-    });
-
-    /* Start the bot */
-    bot.start(dpp::st_wait);
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
 
     return 0;
 }
