@@ -7,6 +7,10 @@ project(${BOT_NAME})
 aux_source_directory("src" coresrc)
 add_executable(${BOT_NAME} ${coresrc})
 
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/llama.cpp")
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/../llama.cpp")
+target_link_libraries(templatebot "${CMAKE_CURRENT_SOURCE_DIR}/../llama.cpp/build/libllama.so")
+
 string(ASCII 27 Esc)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
