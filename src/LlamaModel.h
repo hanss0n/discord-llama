@@ -11,6 +11,7 @@ public:
     LlamaModel(const std::string& model_path);
     ~LlamaModel();
     std::string generate_response(const std::string& input);
+    void test_prompt();
 
 private:
     struct llama_context *ctx;

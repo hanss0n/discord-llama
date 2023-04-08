@@ -4,7 +4,7 @@
 int main() {
     try {
         // Replace "path/to/model/file" with the actual path to your llama model file
-        LlamaModel model("path/to/model/file");
+        LlamaModel model("/home/bjorn/Projects/discord-llama/llama.cpp/models/13B/ggml-model-q4_0.bin");
 
         std::string input_text;
         while (true) {
