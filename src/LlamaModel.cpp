@@ -4,14 +4,8 @@
 LlamaModel::LlamaModel(const std::string &model_path)
 {
     llama_context_params params = llama_context_default_params();
-    params.n_ctx = 1024;
-    params.seed = 42;
-    params.n_parts = -1;
-    params.f16_kv = false;
-    params.logits_all = false;
-    params.vocab_only = false;
-    params.use_mlock = false;
-    params.embedding = false;
+    //params.use_mlock = true;
+
 
 
 
@@ -40,7 +34,7 @@ std::string LlamaModel::generate_response(const std::string& input) {
     std::string output_str;
     
     for (int i = 0; i < n_predict; ++i) {
-        int result = llama_eval(ctx, tokens.data(), token_count, 0, 8);
+        int result = llama_eval(ctx, tokens.data(), token_count, 0, 16);
         if (result != 0) {
             throw std::runtime_error("Failed to run llama inference.");
         }
@@ -49,11 +43,12 @@ std::string LlamaModel::generate_response(const std::string& input) {
         const char *output_token_str = llama_token_to_str(ctx, top_token);
 
         output_str += std::string(output_token_str);
+
         std::cout << output_str << std::endl;
         
         // Update context with the generated token
         tokens.push_back(top_token);
-        token_count++;
+        tokens.erase(tokens.begin());
     }
 
     return output_str;
