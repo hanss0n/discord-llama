@@ -32,8 +32,8 @@ std::string LlamaModel::generate_response(const std::string& input) {
     }
     tokens.resize(token_count);
 
-    int n_predict = 200; // Number of tokens to generate
-    std::string output_str;
+    int n_predict = 50; // Number of tokens to generate
+    std::string output_str = "";
     
     for (int i = 0; i < n_predict; ++i) {
         int result = llama_eval(ctx, tokens.data(), token_count, 0, 10);
