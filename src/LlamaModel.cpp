@@ -4,6 +4,10 @@
 #include <sstream>
 #include <ctime>
 #include <iomanip>
+#include <stdexcept>
+#include <chrono>
+#include <ctime>
+#include <algorithm>
 
 LlamaModel::LlamaModel(const std::string &model_path)
 {
@@ -20,6 +24,7 @@ LlamaModel::LlamaModel(const std::string &model_path)
     {
         throw std::runtime_error("Failed to initialize the llama model from file: " + model_path);
     }
+
     prompt(chat_transcript);
 }
 
@@ -42,57 +47,51 @@ std::vector<llama_token> llama_tokenize(struct llama_context *ctx, const std::st
 std::string LlamaModel::prompt(const std::string &input)
 {
 
-    std::string prompt = input;
-    prompt.insert(0, 1, ' ');
+    std::string prompt = " " + input;
     std::vector<llama_token> tokens(llama_n_ctx(ctx));
     auto embeddings_input = ::llama_tokenize(ctx, prompt.c_str(), true);
 
-    std::string result = "";
-    int n_remain = params.n_predict; // change me
+    std::string result;
+    int n_remain = params.n_predict;
     int n_consumed = 0;
     int n_past = 0;
+
+    bool finished = false;
 
     std::vector<llama_token> last_n_tokens(params.n_ctx);
     std::fill(last_n_tokens.begin(), last_n_tokens.end(), 0);
 
     std::vector<llama_token> embeddings;
     std::vector<llama_token> result_vector;
+    params.antiprompt.push_back("### Discord user:\n\n");
     auto llama_token_newline = ::llama_tokenize(ctx, "\n", false);
+
 
     while (n_remain != 0)
     {
 
-        if (embeddings.size() > 0)
+        if (!embeddings.empty())
         {
-            if (n_past + (int)embeddings.size() > params.n_ctx)
+            if (n_past + static_cast<int>(embeddings.size()) > params.n_ctx)
             {
                 const int n_left = n_past - params.n_keep;
                 n_past = params.n_keep;
-
                 embeddings.insert(embeddings.begin(), last_n_tokens.begin() + params.n_ctx - n_left / 2 - embeddings.size(), last_n_tokens.end() - embeddings.size());
             }
             if (llama_eval(ctx, embeddings.data(), embeddings.size(), n_past, params.n_threads))
             {
-
-                fprintf(stderr, "%s : failed to eval\n", __func__);
-                return "poop";
+                throw std::runtime_error("Failed to evaluate Llama model");
             }
         }
 
         n_past += embeddings.size();
         embeddings.clear();
 
-        if ((int)embeddings_input.size() <= n_consumed)
+        if (static_cast<int>(embeddings_input.size()) <= n_consumed)
         {
             llama_token id = 0;
             {
                 auto logits = llama_get_logits(ctx);
-
-                if (params.ignore_eos)
-                {
-                    logits[llama_token_eos()] = 0;
-                }
-
                 id = llama_sample_top_p_top_k(ctx,
                                               last_n_tokens.data() + params.n_ctx - params.repeat_last_n,
                                               params.repeat_last_n, params.top_k, params.top_p, params.temp, params.repeat_penalty);
@@ -103,24 +102,26 @@ std::string LlamaModel::prompt(const std::string &input)
 
             embeddings.push_back(id);
             std::cout << llama_token_to_str(ctx, id);
-            result_vector.push_back(id);
             --n_remain;
         }
         else
         {
-            while ((int)embeddings_input.size() > n_consumed)
+            while (static_cast<int>(embeddings_input.size()) > n_consumed)
             {
                 embeddings.push_back(embeddings_input[n_consumed]);
                 last_n_tokens.erase(last_n_tokens.begin());
                 last_n_tokens.push_back(embeddings_input[n_consumed]);
                 ++n_consumed;
-                if ((int)embeddings.size() >= params.n_batch)
+                if (static_cast<int>(embeddings.size()) >= params.n_batch)
                 {
                     break;
                 }
             }
         }
+        // Add text to result
+        result_vector.insert(result_vector.end(), embeddings.begin(), embeddings.end());
     }
+
     for (auto id : result_vector)
     {
         result += llama_token_to_str(ctx, id);
@@ -132,6 +133,18 @@ std::string LlamaModel::prompt(const std::string &input)
 std::string LlamaModel::generate_chat_transcript(const std::string &user_name, const std::string &ai_name)
 {
     std::ostringstream output;
+    auto now = std::chrono::system_clock::now();
+    std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+    std::tm *current_time = std::localtime(&now_c);
+
+    char time_buffer[6];
+    std::strftime(time_buffer, sizeof(time_buffer), "%H:%M", current_time);
+
+    char year_buffer[5];
+    std::strftime(year_buffer, sizeof(year_buffer), "%Y", current_time);
+
+    std::string current_time_str(time_buffer);
+    std::string current_year_str(year_buffer);
 
     output << "Text transcript of a never ending dialog, where " << user_name << " interacts with an AI assistant named " << ai_name << ".\n"
            << ai_name << " is helpful, kind, honest, friendly, good at writing and never fails to answer " << user_name << "’s requests immediately and with details and precision.\n"
@@ -141,9 +154,9 @@ std::string LlamaModel::generate_chat_transcript(const std::string &user_name, c
            << user_name << ": Hello, " << ai_name << "!\n"
            << ai_name << ": Hello " << user_name << "! How may I help you today?\n"
            << user_name << ": What time is it?\n"
-           << ai_name << ": It is $(date +%H:%M).\n"
+           << ai_name << ": It is " << current_time_str << ".\n"
            << user_name << ": What year is it?\n"
-           << ai_name << ": We are in $(date +%Y).\n"
+           << ai_name << ": We are in " << current_year_str << ".\n"
            << user_name << ": Please tell me the largest city in Europe.\n"
            << ai_name << ": The largest city in Europe is Moscow, the capital of Russia.\n"
            << user_name << ": What can you tell me about Moscow?\n"
