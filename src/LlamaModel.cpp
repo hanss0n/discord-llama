@@ -8,16 +8,19 @@
 LlamaModel::LlamaModel(const std::string &model_path)
 {
 
-    std::string chatTranscript = generate_chat_transcript("test");
+    std::string chat_transcript = generate_chat_transcript("John");
     llama_params = llama_context_default_params();
+    llama_params.n_ctx = params.n_ctx;
+    llama_params.n_parts = params.n_parts;
+    llama_params.seed = params.seed;
+    llama_params.f16_kv = params.memory_f16;
 
     ctx = llama_init_from_file(model_path.c_str(), llama_params);
     if (!ctx)
     {
         throw std::runtime_error("Failed to initialize the llama model from file: " + model_path);
     }
-
-    generate_response(chatTranscript);
+    prompt(chat_transcript);
 }
 
 LlamaModel::~LlamaModel()
@@ -25,48 +28,12 @@ LlamaModel::~LlamaModel()
     llama_free(ctx);
 }
 
-std::string LlamaModel::generate_response(const std::string &input)
+std::vector<llama_token> llama_tokenize(struct llama_context *ctx, const std::string &text, bool add_bos)
 {
-
-    std::vector<llama_token> tokens(llama_n_ctx(ctx));
-    int token_count = llama_tokenize(ctx, input.c_str(), tokens.data(), tokens.size(), true);
-    if (token_count < 0)
-    {
-        throw std::runtime_error("Failed to tokenize the input text.");
-    }
-    tokens.resize(token_count);
-
-    int n_predict = 50; // Number of tokens to generate
-    std::string output_str = "";
-
-    for (int i = 0; i < n_predict; ++i)
-    {
-        int result = llama_eval(ctx, tokens.data(), token_count, 0, 10);
-        if (result != 0)
-        {
-            throw std::runtime_error("Failed to run llama inference.");
-        }
-
-        llama_token top_token = llama_sample_top_p_top_k(ctx, tokens.data(), token_count, 40, 0.9f, 1.0f, 1.0f);
-        const char *output_token_str = llama_token_to_str(ctx, top_token);
-
-        output_str += std::string(output_token_str);
-
-        std::cout << output_str << std::endl;
-
-        // Update context with the generated token
-        tokens.push_back(top_token);
-        tokens.erase(tokens.begin());
-    }
-
-    return output_str;
-}
-
-std::vector<llama_token> llama_tokenize(struct llama_context * ctx, const std::string & text, bool add_bos) {
     // initialize to prompt numer of chars, since n_tokens <= n_prompt_chars
     std::vector<llama_token> res(text.size() + (int)add_bos);
     int n = llama_tokenize(ctx, text.c_str(), res.data(), res.size(), add_bos);
-    //assert(n >= 0);
+    // assert(n >= 0);
     res.resize(n);
 
     return res;
@@ -81,72 +48,66 @@ std::string LlamaModel::prompt(const std::string &input)
     auto embeddings_input = ::llama_tokenize(ctx, prompt.c_str(), true);
 
     std::string result = "";
-    
-    int n_threads = 10;
-    int n_keep = 200;    // idk what this is
-    int n_remain = 2048; // change me
-    int n_ctx = 2048;
+    int n_remain = params.n_predict; // change me
     int n_consumed = 0;
     int n_past = 0;
-    int repeat_last_n = 29; // idk?
 
-
-    std::vector<llama_token> last_n_tokens(n_ctx);
+    std::vector<llama_token> last_n_tokens(params.n_ctx);
     std::fill(last_n_tokens.begin(), last_n_tokens.end(), 0);
 
     std::vector<llama_token> embeddings;
+    std::vector<llama_token> result_vector;
+    auto llama_token_newline = ::llama_tokenize(ctx, "\n", false);
 
     while (n_remain != 0)
     {
 
         if (embeddings.size() > 0)
         {
-            if (n_past + (int)embeddings.size() > n_ctx)
+            if (n_past + (int)embeddings.size() > params.n_ctx)
             {
-                const int n_left = n_past - n_keep;
-                n_past = n_keep;
+                const int n_left = n_past - params.n_keep;
+                n_past = params.n_keep;
 
-                embeddings.insert(embeddings.begin(), last_n_tokens.begin() + n_ctx - n_left / 2 - embeddings.size(), last_n_tokens.end() - embeddings.size());
+                embeddings.insert(embeddings.begin(), last_n_tokens.begin() + params.n_ctx - n_left / 2 - embeddings.size(), last_n_tokens.end() - embeddings.size());
             }
-            if (llama_eval(ctx, embeddings.data(), embeddings.size(), n_past, n_threads))
+            if (llama_eval(ctx, embeddings.data(), embeddings.size(), n_past, params.n_threads))
             {
+
                 fprintf(stderr, "%s : failed to eval\n", __func__);
-                // throw std::runtime_error("%s : failed to eval\n"); fix this later
+                return "poop";
             }
         }
 
         n_past += embeddings.size();
         embeddings.clear();
 
-        if ((int) embeddings_input.size() <= n_consumed)
+        if ((int)embeddings_input.size() <= n_consumed)
         {
-            const int32_t top_k = 0.7f;
-            const float top_p = 0.8f;
-            const float temp = 0.5f;
-            const float repeat_penalty = 1.16f;
-
             llama_token id = 0;
-
             {
                 auto logits = llama_get_logits(ctx);
 
-                // if (params.ignore_eos) {
-                //   logits[llama_token_eos()] = 0; Is this needed?
-                //}
+                if (params.ignore_eos)
+                {
+                    logits[llama_token_eos()] = 0;
+                }
 
                 id = llama_sample_top_p_top_k(ctx,
-                                              last_n_tokens.data() + n_ctx - repeat_last_n,
-                                              repeat_last_n, top_k, top_p, temp, repeat_penalty);
+                                              last_n_tokens.data() + params.n_ctx - params.repeat_last_n,
+                                              params.repeat_last_n, params.top_k, params.top_p, params.temp, params.repeat_penalty);
 
                 last_n_tokens.erase(last_n_tokens.begin());
                 last_n_tokens.push_back(id);
             }
+
             embeddings.push_back(id);
+            std::cout << llama_token_to_str(ctx, id);
+            result_vector.push_back(id);
             --n_remain;
         }
         else
         {
-
             while ((int)embeddings_input.size() > n_consumed)
             {
                 embeddings.push_back(embeddings_input[n_consumed]);
@@ -160,7 +121,8 @@ std::string LlamaModel::prompt(const std::string &input)
             }
         }
     }
-    for (auto id : embeddings) {
+    for (auto id : result_vector)
+    {
         result += llama_token_to_str(ctx, id);
     }
 
