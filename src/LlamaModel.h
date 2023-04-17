@@ -19,6 +19,8 @@ private:
     struct llama_context *ctx;
     struct llama_context_params llama_params;
     std::string generate_chat_transcript(const std::string &USER_NAME, const std::string &AI_NAME = "Cheems");
+    void consume_tokens(std::vector<llama_token> &embeddings, const std::vector<llama_token> &embeddings_input, std::vector<llama_token> &last_n_tokens, int &n_consumed);
+    std::vector<llama_token> process_embeddings(std::vector<llama_token> &embeddings, std::vector<llama_token> &last_n_tokens, int &n_past);
     struct gpt_params
     {
         int32_t seed = -1; // RNG seed
