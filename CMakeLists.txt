@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 3.6)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-set(BOT_NAME "templatebot")
+set(BOT_NAME "discord_llama")
 
 find_library(LLAMA_LIB llama HINTS ${CMAKE_SOURCE_DIR}/llama.cpp/build)
 find_path(LLAMA_INCLUDE_DIR llama.h HINTS ${CMAKE_SOURCE_DIR}/llama.cpp)
@@ -10,8 +10,8 @@ project(${BOT_NAME})
 aux_source_directory("src" coresrc)
 add_executable(${BOT_NAME} ${coresrc})
 
-target_include_directories(templatebot PRIVATE ${LLAMA_INCLUDE_DIR})
-target_link_libraries(templatebot ${LLAMA_LIB})
+target_include_directories(discord_llama PRIVATE ${LLAMA_INCLUDE_DIR})
+target_link_libraries(discord_llama ${LLAMA_LIB})
 
 string(ASCII 27 Esc)
 

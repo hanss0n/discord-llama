@@ -1,6 +1,10 @@
-# D++ CMake Template (templatebot)
+# D++ CMake Template
 
-CMake template for a simple [D++](https://dpp.dev) bot. This template assumes that D++ is already installed.
+This repo uses the CMake template for a simple [D++](https://dpp.dev) bot. This template assumes that D++ is already installed.
+
+## Prerequisites 
+    * Place llama 13B weights under llama.cpp/models and run quantization, instructions can be found here: https://github.com/ggerganov/llama.cpp
+    * Compile llama.cpp as a shared library with CMake
 
 ## Compilation
 
@@ -13,7 +17,7 @@ If DPP is installed in a different location you can specify the root directory t
 
     cmake .. -DDPP_ROOT_DIR=<your-path>
 
-## Running the template bot
+## Running the discord llama bot
 
 Create a config.json in the directory above the build directory:
 
@@ -24,12 +28,7 @@ Create a config.json in the directory above the build directory:
 Start the bot:
 
     cd build
-    ./templatebot
+    ./discord_llama
 
-## Extending the bot
 
-You can add as many header files and .cpp files into the src and include folders as you wish. All .cpp files in the src directory will be linked together into the bot's executable.
 
-## Renaming the bot
-
-To rename the bot, search and replace "templatebot" in the `CMakeLists.txt` with your new bots name and then rename the templatebot folder in include. Rerun `cmake ..` from the `build` directory and rebuild.

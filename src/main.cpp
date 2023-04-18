@@ -2,14 +2,17 @@
 #include "LlamaModel.h"
 #include <templatebot/templatebot.h>
 #include <sstream>
+#include <filesystem>
 
 int main()
 {
 
     try
     {
-        // Replace "path/to/model/file" with the actual path to your llama model file
-        LlamaModel model("/home/bjorn/Projects/discord-llama/llama.cpp/models/13B/ggml-model-q4_0.bin");
+        std::string user_name = "User@1243";
+        std::string ai_name = "BDU@8738";
+        std::string current_path = std::filesystem::current_path().string();
+        LlamaModel model(current_path + "/../llama.cpp/models/13B/ggml-model-q4_0.bin", user_name, ai_name);
 
         json configdocument;
         std::ifstream configfile("../config.json");
@@ -25,7 +28,7 @@ int main()
         /* Specifying a prefix of "/" tells the command handler it should also expect slash commands */
         command_handler.add_prefix(".").add_prefix("/");
 
-        bot.on_ready([&command_handler, &model, &bot](const dpp::ready_t &event)
+        bot.on_ready([&command_handler, &model, &bot, &user_name](const dpp::ready_t &event)
                      {
                          command_handler.add_command(
                              /* Command name */
@@ -36,7 +39,7 @@ int main()
                                  {"text", dpp::param_info(dpp::pt_string, true, "LLaMa prompt")}},
 
                              /* Command handler */
-                             [&command_handler, &model](const std::string &command, const dpp::parameter_list_t &parameters, dpp::command_source src)
+                             [&command_handler, &model, &user_name](const std::string &command, const dpp::parameter_list_t &parameters, dpp::command_source src)
                              {
                                  std::string got_param;
                                  if (!parameters.empty())
@@ -49,8 +52,8 @@ int main()
                                 dpp::command_completion_event_t original_callback = [](const dpp::confirmation_callback_t& cc) {};
 
                                 command_handler.thinking(src);
-                                std::string generated_response = model.generate_response(got_param);
-                                command_handler.owner->interaction_followup_edit_original(src.command_token, dpp::message(generated_response));
+                                std::string generated_response = model.prompt(user_name + ": " + got_param + "\n");
+                                command_handler.owner->interaction_followup_edit_original(src.command_token, dpp::message("> " + got_param + "\n\n" + generated_response));
                              },
 
                              /* Command description */
