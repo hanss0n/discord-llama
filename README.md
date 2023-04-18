@@ -1,10 +1,12 @@
-# D++ CMake Template
+# Discord Llama
+Simple Discord bot that uses Meta's Llama language model.
 
+## D++ Template
 This repo uses the CMake template for a simple [D++](https://dpp.dev) bot. This template assumes that D++ is already installed.
 
 ## Prerequisites 
-    * Place llama 13B weights under llama.cpp/models and run quantization, instructions can be found here: https://github.com/ggerganov/llama.cpp
-    * Compile llama.cpp as a shared library with CMake
+* Place llama 13B weights under llama.cpp/models and run quantization, instructions can be found here: https://github.com/ggerganov/llama.cpp
+* Compile llama.cpp as a shared library with CMake
 
 ## Compilation
 
