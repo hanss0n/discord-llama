@@ -221,7 +221,11 @@ std::string LlamaModel::generate_chat_transcript(const std::string &user_name, c
            << "    argv[1] is the path to the script file.\n"
            << "    argv[2] is the first argument passed to the script.\n"
            << "    argv[3] is the second argument passed to the script and so on.\n"
-           << user_name << ": Name one color.\n";
+           << user_name << ": Name a color!\n"
+           << ai_name << ": Blue!\n"
+           << user_name << "Say something funny!\n"
+           << ai_name << ": Nope.\n"
+           << user_name << ": What's your favorite song?\n";
 
     return output.str();
 }

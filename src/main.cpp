@@ -2,16 +2,17 @@
 #include "LlamaModel.h"
 #include <templatebot/templatebot.h>
 #include <sstream>
+#include <filesystem>
 
 int main()
 {
-    // LlamaModel model("/home/bjorn/Projects/discord-llama/llama.cpp/models/13B/ggml-model-q4_0.bin", "User@1243", "BDU@8738");
+
     try
     {
-        // Replace "path/to/model/file" with the actual path to your llama model file
         std::string user_name = "User@1243";
         std::string ai_name = "BDU@8738";
-        LlamaModel model("/home/bjorn/Projects/discord-llama/llama.cpp/models/13B/ggml-model-q4_0.bin", user_name, ai_name);
+        std::string current_path = std::filesystem::current_path().string();
+        LlamaModel model(current_path + "/../llama.cpp/models/13B/ggml-model-q4_0.bin", user_name, ai_name);
 
         json configdocument;
         std::ifstream configfile("../config.json");
@@ -51,8 +52,8 @@ int main()
                                 dpp::command_completion_event_t original_callback = [](const dpp::confirmation_callback_t& cc) {};
 
                                 command_handler.thinking(src);
-                                std::string generated_response = model.prompt(user_name + ": " + got_param);
-                                command_handler.owner->interaction_followup_edit_original(src.command_token, dpp::message("> " + got_param + "\n" + generated_response));
+                                std::string generated_response = model.prompt(user_name + ": " + got_param + "\n");
+                                command_handler.owner->interaction_followup_edit_original(src.command_token, dpp::message("> " + got_param + "\n\n" + generated_response));
                              },
 
                              /* Command description */
