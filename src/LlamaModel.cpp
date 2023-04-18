@@ -13,8 +13,7 @@ LlamaModel::LlamaModel(const std::string &model_path, const std::string &user_na
                                                                                                                   user_name(user_name),
                                                                                                                   ai_name(ai_name),
                                                                                                                   last_n_tokens(params.n_ctx, 0),
-                                                                                                                  embeddings(),
-                                                                                                                  result_vector()
+                                                                                                                  embeddings()
 {
     params.antiprompt.push_back(user_name);
     llama_params = llama_context_default_params();
@@ -116,8 +115,8 @@ bool LlamaModel::is_antiprompt_detected(const std::vector<llama_token> &last_n_t
         size_t search_start_pos = last_output.length() > static_cast<size_t>(antiprompt.length() + extra_padding)
                                       ? last_output.length() - static_cast<size_t>(antiprompt.length() + extra_padding)
                                       : 0;
-        to_lower(antiprompt);
-        to_lower(last_output, last_output.begin() + search_start_pos, last_output.end());
+        //to_lower(antiprompt);
+        //to_lower(last_output, last_output.begin() + search_start_pos, last_output.end());
         if (last_output.find(antiprompt.c_str(), search_start_pos) != std::string::npos)
         {
             return true;
@@ -129,7 +128,7 @@ bool LlamaModel::is_antiprompt_detected(const std::vector<llama_token> &last_n_t
 std::string LlamaModel::remove_prefix_and_suffix(std::string str, const std::string &prefix, const std::string &suffix)
 {
     // Remove prefix from the front
-    if (str.find(prefix) == 0)
+    if (str.find(prefix) != std::string::npos)
     {
         str.erase(0, prefix.length() + 2);
     }
@@ -172,16 +171,13 @@ std::string LlamaModel::prompt(const std::string &input)
         else
             consume_tokens(embeddings, embeddings_input, last_n_tokens, n_consumed);
 
-        result_vector.insert(result_vector.end(), embeddings.begin(), embeddings.end());
-
         if (static_cast<int>(embeddings_input.size()) <= n_consumed)
         {
             is_antiprompt = is_antiprompt_detected(last_n_tokens, params.antiprompt, ctx);
         }
     }
 
-    std::cout << result.length() << std::endl;
-    std::cout << remove_prefix_and_suffix(result, ai_name, user_name) << std::endl;
+    std::cout << "RESULT: " << remove_prefix_and_suffix(result, ai_name, user_name) << std::endl;
 
     return remove_prefix_and_suffix(result, ai_name, user_name);
 }

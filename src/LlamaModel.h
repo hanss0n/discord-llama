@@ -12,7 +12,6 @@ class LlamaModel
 public:
     LlamaModel(const std::string &model_path, const std::string &user_name, const std::string &ai_name);
     ~LlamaModel();
-    std::string generate_response(const std::string &input);
     std::string prompt(const std::string &input);
 
 private:
@@ -25,7 +24,7 @@ private:
     {
         int32_t seed = -1; // RNG seed
         int32_t n_threads = std::min(4, (int32_t)std::thread::hardware_concurrency());
-        int32_t n_predict = 512;     // new tokens to predict
+        int32_t n_predict = 200;     // new tokens to predict
         int32_t repeat_last_n = 256; // last n tokens to penalize
         int32_t n_parts = -1;        // amount of model parts (-1 = determine from model dimensions)
         int32_t n_ctx = 2048;        // context size
@@ -72,7 +71,6 @@ private:
     int n_past;
     std::vector<llama_token> last_n_tokens;
     std::vector<llama_token> embeddings;
-    std::vector<llama_token> result_vector;
 };
 
 #endif // LLAMA_MODEL_H
