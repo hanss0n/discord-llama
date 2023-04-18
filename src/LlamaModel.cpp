@@ -9,13 +9,13 @@
 #include <ctime>
 #include <algorithm>
 
-LlamaModel::LlamaModel(const std::string &model_path)
+LlamaModel::LlamaModel(const std::string &model_path, const std::string &user_name, const std::string &ai_name) : n_past(0),
+                                                                                                                  user_name(user_name),
+                                                                                                                  ai_name(ai_name),
+                                                                                                                  last_n_tokens(params.n_ctx, 0),
+                                                                                                                  embeddings(),
+                                                                                                                  result_vector()
 {
-
-    user_name = "### Discord user";
-    ai_name = "### Cheems";
-
-    std::string chat_transcript = generate_chat_transcript(user_name, ai_name);
     params.antiprompt.push_back(user_name);
     llama_params = llama_context_default_params();
     llama_params.n_ctx = params.n_ctx;
@@ -28,7 +28,9 @@ LlamaModel::LlamaModel(const std::string &model_path)
     {
         throw std::runtime_error("Failed to initialize the llama model from file: " + model_path);
     }
+    tokens.resize(llama_n_ctx(ctx));
 
+    std::string chat_transcript = generate_chat_transcript(user_name, ai_name);
     prompt(chat_transcript);
 }
 
@@ -80,6 +82,28 @@ void LlamaModel::consume_tokens(std::vector<llama_token> &embeddings, const std:
     }
 }
 
+std::string LlamaModel::to_lower(const std::string &input,
+                                 std::string::const_iterator start,
+                                 std::string::const_iterator end)
+{
+    std::string output = input;
+
+    if (start == std::string::const_iterator())
+    {
+        start = input.begin();
+    }
+    if (end == std::string::const_iterator())
+    {
+        end = input.end();
+    }
+
+    std::transform(start, end, output.begin() + (start - input.begin()),
+                   [](unsigned char c)
+                   { return std::tolower(c); });
+
+    return output;
+}
+
 bool LlamaModel::is_antiprompt_detected(const std::vector<llama_token> &last_n_tokens, const std::vector<std::string> &antiprompts, llama_context *ctx)
 {
     std::string last_output;
@@ -92,6 +116,8 @@ bool LlamaModel::is_antiprompt_detected(const std::vector<llama_token> &last_n_t
         size_t search_start_pos = last_output.length() > static_cast<size_t>(antiprompt.length() + extra_padding)
                                       ? last_output.length() - static_cast<size_t>(antiprompt.length() + extra_padding)
                                       : 0;
+        to_lower(antiprompt);
+        to_lower(last_output, last_output.begin() + search_start_pos, last_output.end());
         if (last_output.find(antiprompt.c_str(), search_start_pos) != std::string::npos)
         {
             return true;
@@ -100,14 +126,17 @@ bool LlamaModel::is_antiprompt_detected(const std::vector<llama_token> &last_n_t
     return false;
 }
 
-std::string LlamaModel::remove_prefix_and_suffix(std::string str, const std::string &prefix, const std::string &suffix) {
+std::string LlamaModel::remove_prefix_and_suffix(std::string str, const std::string &prefix, const std::string &suffix)
+{
     // Remove prefix from the front
-    if (str.find(prefix) == 0) {
+    if (str.find(prefix) == 0)
+    {
         str.erase(0, prefix.length() + 2);
     }
 
     // Remove suffix from the back
-    if (str.rfind(suffix) == str.length() - suffix.length()) {
+    if (str.rfind(suffix) == str.length() - suffix.length())
+    {
         str.erase(str.length() - suffix.length(), suffix.length());
     }
 
@@ -116,19 +145,16 @@ std::string LlamaModel::remove_prefix_and_suffix(std::string str, const std::str
 
 std::string LlamaModel::prompt(const std::string &input)
 {
+    int n_remain = params.n_predict;
+    int n_consumed = 0;
     std::string prompt = " " + input;
-    std::vector<llama_token> tokens(llama_n_ctx(ctx));
     auto embeddings_input = ::llama_tokenize(ctx, prompt.c_str(), true);
-
-    std::string result;
-    int n_remain = params.n_predict, n_consumed = 0, n_past = 0;
-
-    std::vector<llama_token> last_n_tokens(params.n_ctx, 0);
-    std::vector<llama_token> embeddings, result_vector;
     bool is_antiprompt = false;
+    std::string result;
 
     while (n_remain != 0 && !is_antiprompt)
     {
+        std::cout << n_remain << std::endl;
         if (!embeddings.empty())
             embeddings = process_embeddings(embeddings, last_n_tokens, n_past);
 

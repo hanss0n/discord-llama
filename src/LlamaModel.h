@@ -10,7 +10,7 @@
 class LlamaModel
 {
 public:
-    LlamaModel(const std::string &model_path);
+    LlamaModel(const std::string &model_path, const std::string &user_name, const std::string &ai_name);
     ~LlamaModel();
     std::string generate_response(const std::string &input);
     std::string prompt(const std::string &input);
@@ -25,12 +25,12 @@ private:
     {
         int32_t seed = -1; // RNG seed
         int32_t n_threads = std::min(4, (int32_t)std::thread::hardware_concurrency());
-        int32_t n_predict = 512;    // new tokens to predict
+        int32_t n_predict = 512;     // new tokens to predict
         int32_t repeat_last_n = 256; // last n tokens to penalize
-        int32_t n_parts = -1;       // amount of model parts (-1 = determine from model dimensions)
+        int32_t n_parts = -1;        // amount of model parts (-1 = determine from model dimensions)
         int32_t n_ctx = 2048;        // context size
-        int32_t n_batch = 1024;        // batch size for prompt processing
-        int32_t n_keep = 0;         // number of tokens to keep from initial prompt
+        int32_t n_batch = 1024;      // batch size for prompt processing
+        int32_t n_keep = 0;          // number of tokens to keep from initial prompt
 
         // sampling parameters
         int32_t top_k = 40;
@@ -64,6 +64,15 @@ private:
     std::string remove_prefix_and_suffix(std::string str, const std::string &prefix, const std::string &suffix);
     std::string ai_name;
     std::string user_name;
+    std::string to_lower(const std::string &input,
+                                std::string::const_iterator start = std::string::const_iterator(),
+                                std::string::const_iterator end = std::string::const_iterator());
+
+    std::vector<llama_token> tokens;
+    int n_past;
+    std::vector<llama_token> last_n_tokens;
+    std::vector<llama_token> embeddings;
+    std::vector<llama_token> result_vector;
 };
 
 #endif // LLAMA_MODEL_H
