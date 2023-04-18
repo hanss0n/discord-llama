@@ -1,5 +1,6 @@
 # Discord Llama
 Simple Discord bot that uses Meta's Llama language model.
+Developed using [llama.cpp](https://github.com/ggerganov/llama.cpp) and [DPP](https://github.com/brainboxdotcc/DPP).
 
 ## D++ Template
 This repo uses the CMake template for a simple [D++](https://dpp.dev) bot. This template assumes that D++ is already installed.
