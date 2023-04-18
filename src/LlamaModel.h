@@ -18,7 +18,7 @@ public:
 private:
     struct llama_context *ctx;
     struct llama_context_params llama_params;
-    std::string generate_chat_transcript(const std::string &USER_NAME, const std::string &AI_NAME = "Cheems");
+    std::string generate_chat_transcript(const std::string &user_name, const std::string &ai_name);
     void consume_tokens(std::vector<llama_token> &embeddings, const std::vector<llama_token> &embeddings_input, std::vector<llama_token> &last_n_tokens, int &n_consumed);
     std::vector<llama_token> process_embeddings(std::vector<llama_token> &embeddings, std::vector<llama_token> &last_n_tokens, int &n_past);
     struct gpt_params
@@ -60,6 +60,10 @@ private:
         bool verbose_prompt = false; // print prompt tokens before generation
     };
     struct gpt_params params;
+    bool is_antiprompt_detected(const std::vector<llama_token> &last_n_tokens, const std::vector<std::string> &antiprompts, llama_context *ctx);
+    std::string remove_prefix_and_suffix(std::string str, const std::string &prefix, const std::string &suffix);
+    std::string ai_name;
+    std::string user_name;
 };
 
 #endif // LLAMA_MODEL_H

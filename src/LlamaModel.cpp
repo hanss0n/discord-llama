@@ -12,7 +12,11 @@
 LlamaModel::LlamaModel(const std::string &model_path)
 {
 
-    std::string chat_transcript = generate_chat_transcript("John");
+    user_name = "### Discord user";
+    ai_name = "### Cheems";
+
+    std::string chat_transcript = generate_chat_transcript(user_name, ai_name);
+    params.antiprompt.push_back(user_name);
     llama_params = llama_context_default_params();
     llama_params.n_ctx = params.n_ctx;
     llama_params.n_parts = params.n_parts;
@@ -76,6 +80,40 @@ void LlamaModel::consume_tokens(std::vector<llama_token> &embeddings, const std:
     }
 }
 
+bool LlamaModel::is_antiprompt_detected(const std::vector<llama_token> &last_n_tokens, const std::vector<std::string> &antiprompts, llama_context *ctx)
+{
+    std::string last_output;
+    for (auto id : last_n_tokens)
+        last_output += llama_token_to_str(ctx, id);
+
+    for (const std::string &antiprompt : antiprompts)
+    {
+        size_t extra_padding = 2;
+        size_t search_start_pos = last_output.length() > static_cast<size_t>(antiprompt.length() + extra_padding)
+                                      ? last_output.length() - static_cast<size_t>(antiprompt.length() + extra_padding)
+                                      : 0;
+        if (last_output.find(antiprompt.c_str(), search_start_pos) != std::string::npos)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string LlamaModel::remove_prefix_and_suffix(std::string str, const std::string &prefix, const std::string &suffix) {
+    // Remove prefix from the front
+    if (str.find(prefix) == 0) {
+        str.erase(0, prefix.length() + 2);
+    }
+
+    // Remove suffix from the back
+    if (str.rfind(suffix) == str.length() - suffix.length()) {
+        str.erase(str.length() - suffix.length(), suffix.length());
+    }
+
+    return str;
+}
+
 std::string LlamaModel::prompt(const std::string &input)
 {
     std::string prompt = " " + input;
@@ -87,8 +125,9 @@ std::string LlamaModel::prompt(const std::string &input)
 
     std::vector<llama_token> last_n_tokens(params.n_ctx, 0);
     std::vector<llama_token> embeddings, result_vector;
+    bool is_antiprompt = false;
 
-    while (n_remain != 0)
+    while (n_remain != 0 && !is_antiprompt)
     {
         if (!embeddings.empty())
             embeddings = process_embeddings(embeddings, last_n_tokens, n_past);
@@ -100,19 +139,25 @@ std::string LlamaModel::prompt(const std::string &input)
             last_n_tokens.push_back(id);
 
             embeddings.push_back(id);
-            std::cout << llama_token_to_str(ctx, id);
+            result += llama_token_to_str(ctx, id);
+            std::cout << result << std::endl;
             --n_remain;
         }
         else
             consume_tokens(embeddings, embeddings_input, last_n_tokens, n_consumed);
 
         result_vector.insert(result_vector.end(), embeddings.begin(), embeddings.end());
+
+        if (static_cast<int>(embeddings_input.size()) <= n_consumed)
+        {
+            is_antiprompt = is_antiprompt_detected(last_n_tokens, params.antiprompt, ctx);
+        }
     }
 
-    for (auto id : result_vector)
-        result += llama_token_to_str(ctx, id);
+    std::cout << result.length() << std::endl;
+    std::cout << remove_prefix_and_suffix(result, ai_name, user_name) << std::endl;
 
-    return result;
+    return remove_prefix_and_suffix(result, ai_name, user_name);
 }
 
 std::string LlamaModel::generate_chat_transcript(const std::string &user_name, const std::string &ai_name)
@@ -154,7 +199,7 @@ std::string LlamaModel::generate_chat_transcript(const std::string &user_name, c
            << "    argv[1] is the path to the script file.\n"
            << "    argv[2] is the first argument passed to the script.\n"
            << "    argv[3] is the second argument passed to the script and so on.\n"
-           << user_name << ": Name a color.\n";
+           << user_name << ": Name one color.\n";
 
     return output.str();
 }
