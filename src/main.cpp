@@ -1,8 +1,21 @@
 #include <iostream>
 #include "LlamaModel.h"
-#include <templatebot/templatebot.h>
+#include <deps/deps.h>
 #include <sstream>
 #include <filesystem>
+
+std::string append_dot_if_needed(const std::string &input) {
+    if (input.empty()) {
+        return input;
+    }
+
+    char last_char = input.back();
+    if (last_char != '.' && last_char != '?' && last_char != '!') {
+        return input + '.';
+    }
+
+    return input;
+}
 
 int main()
 {
@@ -11,8 +24,8 @@ int main()
     {
         std::string user_name = "User@1243";
         std::string ai_name = "BDU@8738";
-        std::string current_path = std::filesystem::current_path().string();
-        LlamaModel model(current_path + "/../llama.cpp/models/13B/ggml-model-q4_0.bin", user_name, ai_name);
+        std::filesystem::path llama_src_location = std::filesystem::current_path().append("..").append("llama.cpp");
+        LlamaModel model(llama_src_location, user_name, ai_name);
 
         json configdocument;
         std::ifstream configfile("../config.json");
@@ -47,12 +60,10 @@ int main()
                                      got_param = std::get<std::string>(parameters[0].second);
                                  }
 
-                                dpp::message msg("test");
-
                                 dpp::command_completion_event_t original_callback = [](const dpp::confirmation_callback_t& cc) {};
 
                                 command_handler.thinking(src);
-                                std::string generated_response = model.prompt(user_name + ": " + got_param + "\n");
+                                std::string generated_response = model.prompt(user_name + ": " + append_dot_if_needed(got_param) + "\n");
                                 command_handler.owner->interaction_followup_edit_original(src.command_token, dpp::message("> " + got_param + "\n\n" + generated_response));
                              },
 
