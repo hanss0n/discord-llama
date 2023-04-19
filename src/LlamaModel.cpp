@@ -9,28 +9,32 @@
 #include <ctime>
 #include <algorithm>
 
-LlamaModel::LlamaModel(const std::string &model_path, const std::string &user_name, const std::string &ai_name) : n_past(0),
-                                                                                                                  user_name(user_name),
-                                                                                                                  ai_name(ai_name),
-                                                                                                                  last_n_tokens(params.n_ctx, 0),
-                                                                                                                  embeddings()
+LlamaModel::LlamaModel(const std::filesystem::path& llama_src_dir, const std::string& user_name, const std::string& ai_name)
+    : n_past(0)
+    , user_name(user_name)
+    , ai_name(ai_name)
+    , last_n_tokens(params.n_ctx, 0)
+    , params()
+    , embeddings()
 {
     params.antiprompt.push_back(user_name);
+
     llama_params = llama_context_default_params();
     llama_params.n_ctx = params.n_ctx;
     llama_params.n_parts = params.n_parts;
     llama_params.seed = params.seed;
     llama_params.f16_kv = params.memory_f16;
 
+    std::filesystem::path model_path = llama_src_dir / params.model;
     ctx = llama_init_from_file(model_path.c_str(), llama_params);
+
     if (!ctx)
     {
-        throw std::runtime_error("Failed to initialize the llama model from file: " + model_path);
+        throw std::runtime_error("Failed to initialize the llama model from file: " + llama_src_dir.string());
     }
-    tokens.resize(llama_n_ctx(ctx));
 
-    std::string chat_transcript = generate_chat_transcript(user_name, ai_name);
-    prompt(chat_transcript);
+    tokens.resize(llama_n_ctx(ctx));
+    prompt(generate_chat_transcript(user_name, ai_name));
 }
 
 LlamaModel::~LlamaModel()
@@ -115,8 +119,7 @@ bool LlamaModel::is_antiprompt_detected(const std::vector<llama_token> &last_n_t
         size_t search_start_pos = last_output.length() > static_cast<size_t>(antiprompt.length() + extra_padding)
                                       ? last_output.length() - static_cast<size_t>(antiprompt.length() + extra_padding)
                                       : 0;
-        //to_lower(antiprompt);
-        //to_lower(last_output, last_output.begin() + search_start_pos, last_output.end());
+
         if (last_output.find(antiprompt.c_str(), search_start_pos) != std::string::npos)
         {
             return true;
@@ -130,7 +133,7 @@ std::string LlamaModel::remove_prefix_and_suffix(std::string str, const std::str
     // Remove prefix from the front
     if (str.find(prefix) != std::string::npos)
     {
-        str.erase(0, prefix.length() + 2);
+        str.erase(0, prefix.length() + 1);
     }
 
     // Remove suffix from the back
@@ -144,6 +147,7 @@ std::string LlamaModel::remove_prefix_and_suffix(std::string str, const std::str
 
 std::string LlamaModel::prompt(const std::string &input)
 {
+    std::clog << "Generating prompt..." << std::endl;
     int n_remain = params.n_predict;
     int n_consumed = 0;
     std::string prompt = " " + input;
@@ -153,7 +157,6 @@ std::string LlamaModel::prompt(const std::string &input)
 
     while (n_remain != 0 && !is_antiprompt)
     {
-        std::cout << n_remain << std::endl;
         if (!embeddings.empty())
             embeddings = process_embeddings(embeddings, last_n_tokens, n_past);
 
@@ -165,7 +168,6 @@ std::string LlamaModel::prompt(const std::string &input)
 
             embeddings.push_back(id);
             result += llama_token_to_str(ctx, id);
-            std::cout << result << std::endl;
             --n_remain;
         }
         else
@@ -176,8 +178,6 @@ std::string LlamaModel::prompt(const std::string &input)
             is_antiprompt = is_antiprompt_detected(last_n_tokens, params.antiprompt, ctx);
         }
     }
-
-    std::cout << "RESULT: " << remove_prefix_and_suffix(result, ai_name, user_name) << std::endl;
 
     return remove_prefix_and_suffix(result, ai_name, user_name);
 }
